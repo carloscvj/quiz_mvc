@@ -47,32 +47,30 @@ sequelize.sync() // Syncronize DB and seed if needed
 .catch( err => console.log(`   ${err}`));
 
 
-
    // VIEWs
+
 const index = (quizzes) => `<!-- HTML view -->
 <html>
-    <head><title>MVC Example</title><meta charset="utf-8"></head>
-    <body>
-        <h1>MVC: Quizzes</h1>
-        <table>
-            <tbody>`
-            + quizzes.reduce(
-                (ac, quiz) => ac +=
-                    `   <tr>
-                            <td><a href="/quizzes/${quiz.id}/play">${quiz.question}</a></td>
-                            <td><a href="/quizzes/${quiz.id}/edit"><button>Edit</button></a></td>
-                            <td><a href="/quizzes/${quiz.id}?_method=DELETE" onClick="return confirm('Delete: ${quiz.question}')"><button>Delete</button></a></td>
-                        </tr>`,
-                ""
-            )
-            + `</tbody>
-        </table>
-        <p/>
+    <head><title>MVC Example</title><meta charset="utf-8"></head> 
+    <body> 
+        <h1>MVC: Quizzes</h1>`
++`<table>`
++ quizzes.reduce(
+    (ac, quiz) => ac += 
+`       <tr><td><a href="/quizzes/${quiz.id}/play">${quiz.question}</a></td>
+        <td><a href="/quizzes/${quiz.id}/edit"><button>Edit</button></a></td>
+        <td><a href="/quizzes/${quiz.id}/delete"
+           onClick="return confirm('Delete: ${quiz.question}')">
+           <button>Delete</button></a></td>
+        </tr>`, 
+    ""
+)
++`</table>`
++ `     <p/>
         <a href="/quizzes/new"><button>New Quiz</button></a>
     </body>
 </html>`;
 
-/*
 const play = (id, question, response) => `<!-- HTML view -->
 <html>
     <head><title>MVC Example</title><meta charset="utf-8"></head> 
@@ -87,43 +85,7 @@ const play = (id, question, response) => `<!-- HTML view -->
         <a href="/quizzes"><button>Go back</button></a>
     </body>
 </html>`;
-*/
-const play = (id, question, response) => `<!-- HTML view -->
-<html>
-    <head>
-        <title>MVC Example</title>
-        <meta charset="utf-8">
-        <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
-        <script type="text/javascript">
-            $(function() {
-                $('#submit').on('click', function() {
-                    $.ajax({
-                        type: 'GET',
-                        url: '/quizzes/${id}/check?response=' + $('#response').val(),
-                        success: function(msg) {
-                            $('#msg').html('<strong>' + msg + '</strong>');
-                            $('#msg').show();
-                        }
-                    });
-                });
-                $('#msg').hide();
-            });
-        </script>
-    </head> 
-    <body>
-        <h1>MVC: Quizzes</h1>
-        <form method="get">
-            ${question}: <p>
-            <input id="response" type="text" name="response" value="${response}" placeholder="Answer" />
-            <input id="submit" type="button" value="Check"/> <br>
-        </form>
-        <div id="msg"></div>
-        </p>
-        <a href="/quizzes"><button>Go back</button></a>
-    </body>
-</html>`;
 
-/*
 const check = (id, msg, response) => `<!-- HTML view -->
 <html>
     <head><title>MVC Example</title><meta charset="utf-8"></head> 
@@ -135,7 +97,6 @@ const check = (id, msg, response) => `<!-- HTML view -->
         <a href="/quizzes/${id}/play?response=${response}"><button>Try again</button></a>
     </body>
 </html>`;
-*/
 
 const quizForm =(msg, method, action, question, answer) => `<!-- HTML view -->
 <html>
@@ -153,11 +114,30 @@ const quizForm =(msg, method, action, question, answer) => `<!-- HTML view -->
     </body>
 </html>`;
 
+const editForm =(msg, method, action, question, answer) => `<!-- HTML view -->
+<html>
+    <head><title>MVC Example</title><meta charset="utf-8"></head> 
+    <body>
+        <h1>MVC: Quizzes</h1>
+        <form   method="${method}"   action="${action}">
+            ${msg}: <p>
+			<input  type="hidden"  name="_method" value="PUT"/>
+            <input  type="text"  name="question" value="${question}" placeholder="Question" />
+            <input  type="text"  name="answer"   value="${answer}"   placeholder="Answer" />
+            <input  type="submit" value="Create"/> <br>
+        </form>
+        </p>
+        <a href="/quizzes"><button>Go back</button></a>
+    </body>
+</html>`;
+
+
 
    // CONTROLLER
 
 // GET /, GET /quizzes
 const indexController = (req, res, next) => {
+ 
     quizzes.findAll()
     .then((quizzes) => res.send(index(quizzes)))
     .catch((error) => `DB Error:\n${error}`);
@@ -181,35 +161,53 @@ const checkController = (req, res, next) => {
     quizzes.findById(id)
     .then((quiz) => {
         msg = (quiz.answer===response) ?
-              `Yes, "${response}" is the ${quiz.question}` 
+              `yes, "${response}" is the ${quiz.question}` 
             : `No, "${response}" is not the ${quiz.question}`;
-        //return res.send(check(id, msg, response));
-        return res.send(msg);
+        return res.send(check(id, msg, response));
     })
     .catch((error) => `A DB Error has occurred:\n${error}`);
 };
 
 //  GET /quizzes/1/edit
 const editController = (req, res, next) => {
-    let id = Number(req.params.id);
 
-    quizzes.findById(id)
-    .then((quiz) => res.send(quizForm("Edit Quiz", "post", "/quizzes/" + quiz.id + "?_method=PUT", quiz.question, quiz.answer)))
-    .catch((error) => `Quiz not found - edit: \n${error}`);
+     // .... introducir código
+	let id = Number(req.params.id);
+	quizzes.findById(id)
+    .then((quiz) =>{
+		res.send(editForm("Edit Quiz", "get", "/quizzes/" + id+"/update", quiz.question, quiz.answer));
+	})
+    .catch((error) => `A DB Error has occurred:\n${error}`);
+	
 };
 
 //  PUT /quizzes/1
 const updateController = (req, res, next) => {
-    let id = Number(req.params.id);
-    let {question, answer} = req.body;
-   
-    quizzes.update({question, answer}, {where: {id}})
-    .then((quiz) => res.redirect('/quizzes'))
-    .catch((error) => `Quiz not updated:\n${error}`);
+
+     // .... introducir código
+	 let {question, answer} = req.body;
+	 console.log(req);
+	 console.log('Pregunta:' + req.query.question);
+	 console.log('Respuesta:' + req.query.answer);
+	 let id=Number(req.params.id);
+	 console.log('Id:' + id);
+	 quizzes.findById(id)
+    .then((quiz) =>{
+		console.log('aqui0');
+		quiz.question=req.query.question;
+		quiz.answer=req.query.answer;
+		quiz.save();
+		res.redirect('/quizzes');
+	})
+    .catch((error) => `A DB Error has occurred:\n${error}`);
+	 
+
+
 };
 
 // GET /quizzes/new
 const newController = (req, res, next) => {
+
     res.send(quizForm("Create new Quiz", "post", "/quizzes", "", ""));
  };
 
@@ -225,11 +223,17 @@ const createController = (req, res, next) => {
 
 // DELETE /quizzes/1
 const destroyController = (req, res, next) => {
-    let id = Number(req.params.id);
 
-    quizzes.destroy({ where: {id} })
-    .then((quiz) => res.redirect('/quizzes'))
-    .catch((error) => `Quiz not deleted:\n${error}`);
+     // .... introducir código
+	 let id=Number(req.params.id);
+	 quizzes.destroy({where:{id}})
+	.catch( 
+		error =>
+			`Quiz not created:\n${error}`
+		)
+	.then(() => {
+		res.redirect('/quizzes');
+	});
  };
 
 
@@ -239,13 +243,14 @@ const destroyController = (req, res, next) => {
 app.get(['/', '/quizzes'],    indexController);
 app.get('/quizzes/:id/play',  playController);
 app.get('/quizzes/:id/check', checkController);
+app.get('/quizzes/:id/edit',  editController);
+app.get('/quizzes/:id/update',   updateController);
+app.get('/quizzes/:id/delete',   destroyController);
 app.get('/quizzes/new',       newController);
 app.post('/quizzes',          createController);
-// ..... instalar los MWs asociados a
-//   GET  /quizzes/:id/edit,   PUT  /quizzes/:id y  DELETE  /quizzes/:id
-app.get('/quizzes/:id/edit',  editController);
-app.put('/quizzes/:id',       updateController);
-app.get('/quizzes/:id',    destroyController);
+
+    // ..... instalar los MWs asociados a
+    //   GET  /quizzes/:id/edit,   PUT  /quizzes/:id y  DELETE  /quizzes/:id
 
 
 app.all('*', (req, res) =>
